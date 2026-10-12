@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CATEGORIES, DEFAULT_MY_PRODUCT } from "@/lib/categories";
 import type { ScoutProduct, ScoutRun } from "@/lib/types";
@@ -94,9 +93,6 @@ export default function Home() {
             Finds tools launched in the last 7 days, ranks them by upvotes and maker responsiveness, and drafts an outreach angle for each founder — in seconds instead of 30–40 minutes.
           </p>
         </div>
-        <Link href="/components-map" className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">
-          Components Map →
-        </Link>
       </header>
 
       <section className="grid gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-[1fr_1.4fr]">
