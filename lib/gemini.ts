@@ -41,8 +41,8 @@ export async function enrichWithGemini(myProduct: string, products: GeminiInput[
 
 Below are tools that launched on ProductHunt in the last 7 days (JSON). For EACH product return:
 - oneLiner: a plain-English one-line description of what it does (max 18 words, no hype, no emojis).
-- outreachAngle: a 2-sentence suggested outreach angle for Kavya's first message to the founder. It must name a CONCRETE way the two products complement each other (integration, co-marketing, bundle, referral, shared audience) and reference something specific about THEIR product. Do not be generic. Do not claim facts that are not in the data.
-- fit: "high" if the audiences clearly overlap and the products are complementary, "medium" if plausible, "low" if weak or competitive.
+- outreachAngle: a 2-sentence suggested outreach angle for Kavya's first message to the founder. It must name a CONCRETE way the two products complement each other (integration, co-marketing, bundle, referral, shared audience) and reference something specific about THEIR product. Do not be generic. Do not claim facts that are not in the data. Even for a weak fit, never write "no overlap" or dismiss the product: propose the single most realistic idea (e.g. audience swap, joint webinar, newsletter feature) and let the fit rating carry the honesty. Frame everything as a proposal ("we could…"). NEVER state facts about Kavya's product beyond the description above (do not claim which AI models, vendors or integrations it uses or already has).
+- fit: be a strict judge. "high" = same buyer (remote/distributed team managers or HR/people ops/engineering leads) AND a natural product integration or co-marketing exists. "medium" = overlapping audience but the integration idea is a stretch. "low" = different buyer, consumer product, foundation-model/infrastructure vendor, large-company launch, or a competitor.
 Use the product id exactly as given. Return a JSON array with one object per product.
 
 PRODUCTS:

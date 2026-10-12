@@ -48,8 +48,7 @@ export async function runScout(categoryKeys: string[], myProduct: string, topN =
   const now = Date.now();
   const ranked = scorable
     .map((s, i) => ({ ...s, score: scores[i] }))
-    .sort((a, b) => b.score - a.score || b.votesCount - a.votesCount)
-    .slice(0, limit);
+    .sort((a, b) => b.score - a.score || b.votesCount - a.votesCount);
 
   // 4. Gemini Flash: one-liner + outreach angle for each product
   let ai = new Map<string, GeminiOutput>();
@@ -61,7 +60,7 @@ export async function runScout(categoryKeys: string[], myProduct: string, topN =
         id: post.id,
         name: post.name,
         tagline: post.tagline,
-        description: (post.description ?? "").slice(0, 500),
+        description: (post.description ?? "").slice(0, 350),
         topics: post.topics,
         upvotes: post.votesCount,
         makerComments,
@@ -74,7 +73,16 @@ export async function runScout(categoryKeys: string[], myProduct: string, topN =
     warnings.push(`Gemini enrichment failed, showing ProductHunt taglines instead: ${(e as Error).message}`);
   }
 
-  const results: ScoutProduct[] = ranked.map(({ post, score }, idx) => {
+  // Relevance filter: keep the highest-scoring products that are not "low" fit; weak fits only
+  // fill remaining slots. The order is always by score (upvotes + maker comments).
+  const fitOf = (id: string) => ai.get(id)?.fit ?? "medium";
+  const relevant = ranked.filter((r) => fitOf(r.post.id) !== "low");
+  const weak = ranked.filter((r) => fitOf(r.post.id) === "low");
+  const selected = [...relevant, ...weak.slice(0, Math.max(0, limit - relevant.length))]
+    .slice(0, limit)
+    .sort((a, b) => b.score - a.score || b.votesCount - a.votesCount);
+
+  const results: ScoutProduct[] = selected.map(({ post, score }, idx) => {
     const g = ai.get(post.id);
     const maker = post.makers.find((m) => m.name && m.name !== REDACTED);
     const hunter = post.hunter && post.hunter !== REDACTED ? post.hunter : null;
