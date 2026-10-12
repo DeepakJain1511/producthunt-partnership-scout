@@ -5,7 +5,7 @@ An AI-powered partnership scout for B2B SaaS teams. It queries ProductHunt for t
 Built for the Mesa Cohort C4 "AI and its Applications" final exam — Problem 4 (Kavya's partnership scouting).
 
 - **Live app:** _see deployment URL in the submission_
-- **Components Map:** [docs/Components-Map.pdf](docs/Components-Map.pdf)
+- **Components Map:** [docs/Components-Map.pdf](docs/Components-Map.pdf) (5-page detailed) · [one-page version](docs/Components-Map-One-Page.pdf)
 - **Grading rubric:** [docs/RUBRIC.md](docs/RUBRIC.md)
 
 ## Output per product
