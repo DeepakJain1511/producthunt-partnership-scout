@@ -48,15 +48,22 @@ Use the product id exactly as given. Return a JSON array with one object per pro
 PRODUCTS:
 ${JSON.stringify(products)}`;
 
-  const res = await fetch(ENDPOINT, {
-    method: "POST",
-    headers: { "x-goog-api-key": process.env.GEMINI_API_KEY || "", "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.5, responseMimeType: "application/json", responseSchema: SCHEMA },
-    }),
+  const body = JSON.stringify({
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.5, responseMimeType: "application/json", responseSchema: SCHEMA },
   });
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  // Gemini occasionally returns 429/503 under load: retry with backoff.
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "x-goog-api-key": process.env.GEMINI_API_KEY || "", "Content-Type": "application/json" },
+      body,
+    });
+    if (res.ok || ![429, 500, 503].includes(res.status)) break;
+    await new Promise((r) => setTimeout(r, 1500 * 2 ** attempt));
+  }
+  if (!res || !res.ok) throw new Error(`Gemini ${res?.status}: ${(await res?.text())?.slice(0, 200)}`);
   const json = await res.json();
   const parts: { text?: string; thought?: boolean }[] = json.candidates?.[0]?.content?.parts ?? [];
   const text = parts.filter((p) => p.text && !p.thought).map((p) => p.text).join("");

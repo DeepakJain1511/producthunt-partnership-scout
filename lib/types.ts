@@ -8,7 +8,7 @@ export interface ScoutProduct {
   founderRole: "maker" | "hunter";
   oneLiner: string;
   upvotes: number;
-  makerComments: number;
+  makerComments: number | null; // null = product lists no public makers
   totalComments: number;
   daysSinceLaunch: number;
   launchedAt: string;

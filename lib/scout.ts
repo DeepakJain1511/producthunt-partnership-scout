@@ -37,8 +37,9 @@ export async function runScout(categoryKeys: string[], myProduct: string, topN =
       p.makerComments = await countMakerComments(p);
     })
   );
-  if (pool.some((p) => p.makerComments === null)) {
-    warnings.push("Maker comments could not be measured for some products; they were scored as 0.");
+  const unmeasured = pool.filter((p) => p.makerComments === null).length;
+  if (unmeasured > 0) {
+    warnings.push(`${unmeasured} of the top ${pool.length} launches list no public makers (usually big-company launches), so their maker comments show "–" and score on upvotes only.`);
   }
 
   // 3. Score and rank
@@ -73,7 +74,7 @@ export async function runScout(categoryKeys: string[], myProduct: string, topN =
     warnings.push(`Gemini enrichment failed, showing ProductHunt taglines instead: ${(e as Error).message}`);
   }
 
-  const results: ScoutProduct[] = ranked.map(({ post, score, makerComments }, idx) => {
+  const results: ScoutProduct[] = ranked.map(({ post, score }, idx) => {
     const g = ai.get(post.id);
     const maker = post.makers.find((m) => m.name && m.name !== REDACTED);
     const hunter = post.hunter && post.hunter !== REDACTED ? post.hunter : null;
@@ -85,7 +86,7 @@ export async function runScout(categoryKeys: string[], myProduct: string, topN =
       founderRole: maker ? "maker" : "hunter",
       oneLiner: g?.oneLiner ?? post.tagline,
       upvotes: post.votesCount,
-      makerComments,
+      makerComments: post.makerComments,
       totalComments: post.commentsCount,
       daysSinceLaunch: daysSince(post.createdAt, now),
       launchedAt: post.createdAt,

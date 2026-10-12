@@ -11,7 +11,7 @@ export interface PHPost {
   createdAt: string;
   url: string;
   topics: string[];
-  makers: { name: string; username: string }[];
+  makers: { id: string; name: string; username: string }[];
   hunter: string | null;
   makerComments: number | null; // null = could not be measured
 }
@@ -60,7 +60,7 @@ query($topic: String, $after: DateTime, $first: Int) {
     edges { node {
       id name tagline description votesCount commentsCount createdAt url
       topics(first: 5) { edges { node { name } } }
-      makers { name username }
+      makers { id name username }
       user { name }
     } }
   }
@@ -70,7 +70,7 @@ interface RawPost {
   id: string; name: string; tagline: string; description: string | null;
   votesCount: number; commentsCount: number; createdAt: string; url: string;
   topics: { edges: { node: { name: string } }[] };
-  makers: { name: string; username: string }[];
+  makers: { id: string; name: string; username: string }[];
   user: { name: string } | null;
 }
 
@@ -98,31 +98,31 @@ const COMMENTS_QUERY = `
 query($id: ID!) {
   post(id: $id) {
     comments(first: 20) { edges { node {
-      user { username isMaker }
-      replies(first: 5) { edges { node { user { username isMaker } } } }
+      userId
+      replies(first: 5) { edges { node { userId } } }
     } } }
   }
 }`;
 
 interface CommentNode {
-  user: { username: string; isMaker: boolean } | null;
-  replies: { edges: { node: { user: { username: string; isMaker: boolean } | null } }[] };
+  userId: string;
+  replies: { edges: { node: { userId: string } }[] };
 }
 
-/** Counts comments + replies written by the product's makers — a responsiveness signal. */
+/**
+ * Counts comments + replies written by the product's makers — a responsiveness signal.
+ * ProductHunt redacts commenter usernames for API clients, but comment.userId is exposed,
+ * so we match it against the makers' ids.
+ */
 export async function countMakerComments(post: PHPost): Promise<number | null> {
+  if (post.makers.length === 0) return null;
   try {
     const data = await gql<{ post: { comments: { edges: { node: CommentNode }[] } } | null }>(COMMENTS_QUERY, { id: post.id });
-    const makerNames = new Set(post.makers.map((m) => m.username).filter((n) => n !== REDACTED));
-    const isMaker = (u: { username: string; isMaker: boolean } | null) =>
-      !!u && u.username !== REDACTED && (makerNames.has(u.username) || u.isMaker);
-    // If identities are hidden we cannot measure maker activity — report "unknown", not 0.
-    const first = data.post?.comments.edges[0]?.node.user;
-    if (first && first.username === REDACTED) return null;
+    const makerIds = new Set(post.makers.map((m) => String(m.id)));
     let count = 0;
     for (const { node } of data.post?.comments.edges ?? []) {
-      if (isMaker(node.user)) count++;
-      for (const r of node.replies.edges) if (isMaker(r.node.user)) count++;
+      if (makerIds.has(String(node.userId))) count++;
+      for (const r of node.replies.edges) if (makerIds.has(String(r.node.userId))) count++;
     }
     return count;
   } catch {
