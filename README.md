@@ -29,7 +29,7 @@ npm run dev
 |---|---|
 | `PRODUCTHUNT_TOKEN` | ProductHunt developer token (needed to see maker identities) |
 | `PRODUCTHUNT_CLIENT_ID` / `PRODUCTHUNT_CLIENT_SECRET` | Fallback client-credentials auth |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | Gemini Flash (default `gemini-3.8-flash`) |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | Gemini Flash (default `gemini-3.6-flash`) |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Scan history (table `scout_runs`) |
 
 ## Notes

@@ -1,7 +1,16 @@
 import type { Fit } from "./types";
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+// All AI tasks use Gemini Flash. The free tier caps each model at ~20 requests/day, so we fall back
+// through other Flash models (each has its own quota) instead of failing.
+const MODELS = [
+  process.env.GEMINI_MODEL || "gemini-3.6-flash",
+  "gemini-3.5-flash",
+  "gemini-3-flash-preview",
+  "gemini-3.8-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-3.5-flash-lite",
+].filter((m, i, a) => a.indexOf(m) === i);
+const endpoint = (m: string) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
 
 export interface GeminiInput {
   id: string;
@@ -35,7 +44,7 @@ const SCHEMA = {
   },
 };
 
-export async function enrichWithGemini(myProduct: string, products: GeminiInput[]): Promise<GeminiOutput[]> {
+async function enrichChunk(myProduct: string, products: GeminiInput[]): Promise<GeminiOutput[]> {
   const prompt = `You are a partnerships strategist. Kavya leads partnerships at a B2B SaaS company. Her product:
 """${myProduct}"""
 
@@ -50,24 +59,42 @@ ${JSON.stringify(products)}`;
 
   const body = JSON.stringify({
     contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.5, responseMimeType: "application/json", responseSchema: SCHEMA },
+    generationConfig: {
+      temperature: 0.5,
+      responseMimeType: "application/json",
+      responseSchema: SCHEMA,
+      thinkingConfig: { thinkingLevel: "low" },
+    },
   });
-  // Gemini occasionally returns 429/503 under load: retry with backoff.
   let res: Response | null = null;
-  for (let attempt = 0; attempt < 4; attempt++) {
-    res = await fetch(ENDPOINT, {
-      method: "POST",
-      headers: { "x-goog-api-key": process.env.GEMINI_API_KEY || "", "Content-Type": "application/json" },
-      body,
-    });
-    if (res.ok || ![429, 500, 503].includes(res.status)) break;
-    await new Promise((r) => setTimeout(r, 1500 * 2 ** attempt));
+  let lastErr = "";
+  for (const model of MODELS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      res = await fetch(endpoint(model), {
+        method: "POST",
+        headers: { "x-goog-api-key": process.env.GEMINI_API_KEY || "", "Content-Type": "application/json" },
+        body,
+      });
+      if (res.ok) break;
+      lastErr = `${model} ${res.status}: ${(await res.text()).slice(0, 120)}`;
+      if (res.status !== 503) break; // 429 quota / 404 / 400 -> next model; 503 -> one quick retry
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+    if (res?.ok) break;
   }
-  if (!res || !res.ok) throw new Error(`Gemini ${res?.status}: ${(await res?.text())?.slice(0, 200)}`);
+  if (!res || !res.ok) throw new Error(`All Gemini Flash models unavailable (${lastErr})`);
   const json = await res.json();
   const parts: { text?: string; thought?: boolean }[] = json.candidates?.[0]?.content?.parts ?? [];
   const text = parts.filter((p) => p.text && !p.thought).map((p) => p.text).join("");
   const parsed = JSON.parse(text) as GeminiOutput[];
   if (!Array.isArray(parsed)) throw new Error("Gemini returned non-array JSON");
   return parsed;
+}
+
+/** Splits the pool into small parallel calls: faster and well inside the serverless time limit. */
+export async function enrichWithGemini(myProduct: string, products: GeminiInput[], chunkSize = 10): Promise<GeminiOutput[]> {
+  const chunks: GeminiInput[][] = [];
+  for (let i = 0; i < products.length; i += chunkSize) chunks.push(products.slice(i, i + chunkSize));
+  const parts = await Promise.all(chunks.map((c) => enrichChunk(myProduct, c)));
+  return parts.flat();
 }
